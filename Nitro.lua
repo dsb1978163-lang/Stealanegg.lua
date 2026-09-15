@@ -1,6 +1,6 @@
 --[================================================================]--
---     NITRO STEAL AN EGG - COMPACT MODULAR QA SUITE                --
---     Brand: NITRO | Version: 3.0.0-Compact                        --
+--     NITRO STEAL AN EGG - PROFESSIONAL ACCORDION SUITE v4.0       --
+--     Brand: NITRO | Clean Modular Architecture                    --
 --[================================================================]--
 
 local Players = game:GetService("Players")
@@ -14,7 +14,7 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 --------------------------------------------------------------------------------
--- 1. CONFIGURATION & STATE
+-- 1. CONFIGURATION & STATE MANAGEMENT
 --------------------------------------------------------------------------------
 local Config = {
     MasterEnable = false,
@@ -30,7 +30,7 @@ local Config = {
         TrainAction = ReplicatedStorage:FindFirstChild("TrainRemote") or Instance.new("RemoteEvent"),
     },
     
-    StealDelay = 0.8,
+    StealCooldown = 0.75,
     
     Filters = {
         Areas = {"Titan Temple", "Cherry Blossom", "Cosmic", "Forest", "Lake", "Desert"},
@@ -40,20 +40,20 @@ local Config = {
     },
     
     Automation = {
-        TargetPriority = "HighestKG", -- "HighestKG" or "ClosestDistance"
+        Priority = "HighestKG", -- "HighestKG" or "ClosestDistance"
     }
 }
 
 local Runtime = {
-    CurrentState = "IDLE",
-    CurrentAction = "Waiting for activation...",
-    CurrentTarget = nil,
+    State = "Idle",
+    TargetEgg = nil,
+    TargetTreadmill = nil,
     LastStealTick = 0,
     IsMinimized = false,
 }
 
 --------------------------------------------------------------------------------
--- 2. ROBUST SCANNING & FILTERING LOGIC
+-- 2. SCANNING & INTELLIGENT ROUTING LOGIC
 --------------------------------------------------------------------------------
 local function TableContains(tbl, val)
     for _, v in ipairs(tbl) do
@@ -88,7 +88,7 @@ local function FindBestEligibleEgg()
             local distance = hrp and (hrp.Position - pos).Magnitude or 0
             local kg = egg:GetAttribute("KG") or 10
             
-            local score = Config.Automation.TargetPriority == "HighestKG" and kg or (-distance)
+            local score = Config.Automation.Priority == "HighestKG" and kg or (-distance)
             if score > bestScore then
                 bestScore = score
                 bestEgg = egg
@@ -122,38 +122,37 @@ local function FindNearestTreadmill()
 end
 
 --------------------------------------------------------------------------------
--- 3. POLISHED COMPACT MODERN UI DESIGN
+-- 3. COMPACT MODERN UI DESIGN & ACCORDIONS
 --------------------------------------------------------------------------------
 local parentTarget = (pcall(function() return CoreGui end) and CoreGui) or LocalPlayer:WaitForChild("PlayerGui")
-
-if parentTarget:FindFirstChild("NitroCompactUI") then
-    parentTarget.NitroCompactUI:Destroy()
+if parentTarget:FindFirstChild("NitroCompactSuite") then
+    parentTarget.NitroCompactSuite:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NitroCompactUI"
+ScreenGui.Name = "NitroCompactSuite"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = parentTarget
 
--- Compact Main Window (Small, Clean)
+-- Main Window Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 340, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -170, 0.4, -210)
-MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+MainFrame.Size = UDim2.new(0, 340, 0, 460)
+MainFrame.Position = UDim2.new(0.5, -170, 0.4, -230)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(45, 45, 65)
+MainStroke.Color = Color3.fromRGB(50, 50, 75)
 MainStroke.Thickness = 1.5
 MainStroke.Parent = MainFrame
 
 -- Header Bar
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 40)
+Header.Size = UDim2.new(1, 0, 0, 42)
 Header.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
 Header.BorderSizePixel = 0
 Header.Parent = MainFrame
@@ -161,39 +160,39 @@ Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 10)
 
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -80, 1, 0)
-TitleLabel.Position = UDim2.new(0, 12, 0, 0)
+TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.Text = "⚡ NITRO | AUTO STEAL"
+TitleLabel.Text = "⚡ NITRO | STEAL AN EGG"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 90, 90)
 TitleLabel.TextSize = 13
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = Header
 
--- Window Controls (Minimize & Close)
-local function createHeaderBtn(text, color, xOffset)
+-- Window Controls (Minimize, Close)
+local function createHeaderButton(text, color, xOffset)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 24, 0, 24)
-    btn.Position = UDim2.new(1, xOffset, 0.5, -12)
+    btn.Size = UDim2.new(0, 26, 0, 26)
+    btn.Position = UDim2.new(1, xOffset, 0.5, -13)
     btn.BackgroundColor3 = color
     btn.Text = text
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 11
     btn.Parent = Header
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     return btn
 end
 
-local CloseBtn = createHeaderBtn("✕", Color3.fromRGB(200, 50, 50), -32)
-local MinBtn = createHeaderBtn("🗕", Color3.fromRGB(200, 160, 40), -60)
+local CloseBtn = createHeaderButton("✕", Color3.fromRGB(200, 50, 50), -34)
+local MinBtn = createHeaderButton("🗕", Color3.fromRGB(200, 160, 40), -66)
 
--- Minimized Reopen Pill
+-- Reopen Pill
 local ReopenBtn = Instance.new("TextButton")
 ReopenBtn.Name = "ReopenPill"
 ReopenBtn.Size = UDim2.new(0, 120, 0, 36)
 ReopenBtn.Position = UDim2.new(0.02, 0, 0.05, 0)
-ReopenBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+ReopenBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
 ReopenBtn.Text = "⚡ NITRO (Open)"
 ReopenBtn.TextColor3 = Color3.fromRGB(255, 90, 90)
 ReopenBtn.Font = Enum.Font.GothamBold
@@ -206,52 +205,64 @@ ReopenStroke.Color = Color3.fromRGB(255, 90, 90)
 ReopenStroke.Thickness = 1.5
 ReopenStroke.Parent = ReopenBtn
 
--- Scrollable Content Container (Accordion / Dropdown layout)
+-- Scrollable Body Container
 local Container = Instance.new("ScrollingFrame")
 Container.Size = UDim2.new(1, -16, 1, -56)
 Container.Position = UDim2.new(0, 8, 0, 48)
 Container.BackgroundTransparency = 1
-Container.CanvasSize = UDim2.new(0, 0, 0, 680)
+Container.CanvasSize = UDim2.new(0, 0, 0, 500)
 Container.ScrollBarThickness = 3
 Container.Parent = MainFrame
 
 local UIList = Instance.new("UIListLayout")
-UIList.Padding = UDim.new(0, 8)
+UIList.Padding = UDim.new(0, 6)
 UIList.Parent = Container
 
--- Helper to create styled section headers/dropdowns
-local function createSection(titleText)
-    local section = Instance.new("Frame")
-    section.Size = UDim2.new(1, 0, 0, 32)
-    section.BackgroundColor3 = Color3.fromRGB(24, 24, 34)
-    section.Parent = Container
-    Instance.new("UICorner", section).CornerRadius = UDim.new(0, 6)
+--------------------------------------------------------------------------------
+-- 4. ACCORDION DROPDOWN BUILDER
+--------------------------------------------------------------------------------
+local function createAccordion(titleText, expandedHeight)
+    local wrapper = Instance.new("Frame")
+    wrapper.Size = UDim2.new(1, 0, 0, 32)
+    wrapper.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    wrapper.ClipsDescendants = true
+    wrapper.Parent = Container
+    Instance.new("UICorner", wrapper).CornerRadius = UDim.new(0, 6)
     
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -12, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Font = Enum.Font.GothamBold
-    lbl.Text = "▼ " .. titleText
-    lbl.TextColor3 = Color3.fromRGB(220, 220, 240)
-    lbl.TextSize = 12
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = section
-    return section
+    local headerBtn = Instance.new("TextButton")
+    headerBtn.Size = UDim2.new(1, 0, 0, 32)
+    headerBtn.BackgroundTransparency = 1
+    headerBtn.Font = Enum.Font.GothamBold
+    headerBtn.Text = "  ▼  " .. titleText
+    headerBtn.TextColor3 = Color3.fromRGB(220, 220, 240)
+    headerBtn.TextSize = 12
+    headerBtn.TextXAlignment = Enum.TextXAlignment.Left
+    headerBtn.Parent = wrapper
+    
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, -16, 0, expandedHeight)
+    contentFrame.Position = UDim2.new(0, 8, 0, 36)
+    contentFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+    contentFrame.Parent = wrapper
+    Instance.new("UICorner", contentFrame).CornerRadius = UDim.new(0, 6)
+    
+    local isOpen = false
+    headerBtn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        local targetH = isOpen and (expandedHeight + 42) or 32
+        TweenService:Create(wrapper, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, targetH)}):Play()
+        headerBtn.Text = isOpen ? "  ▲  " .. titleText : "  ▼  " .. titleText
+    end)
+    
+    return contentFrame
 end
 
 --------------------------------------------------------------------------------
--- 4. BUILDING UI SECTIONS & CONTROLS
+-- 5. POPULATING SECTIONS & CONTROLS
 --------------------------------------------------------------------------------
 
--- SECTION: MAIN AUTOMATION CONTROL
-createSection("Master Automation")
-local mainControlFrame = Instance.new("Frame")
-mainControlFrame.Size = UDim2.new(1, 0, 0, 80)
-mainControlFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-mainControlFrame.Parent = Container
-Instance.new("UICorner", mainControlFrame).CornerRadius = UDim.new(0, 6)
-
+-- A. Auto Steal Control Panel
+local autoAcc = createAccordion("Auto Steal & Status", 85)
 local masterToggle = Instance.new("TextButton")
 masterToggle.Size = UDim2.new(1, -16, 0, 32)
 masterToggle.Position = UDim2.new(0, 8, 0, 8)
@@ -260,8 +271,19 @@ masterToggle.Text = "Auto Steal: OFF"
 masterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 masterToggle.Font = Enum.Font.GothamBold
 masterToggle.TextSize = 12
-masterToggle.Parent = mainControlFrame
+masterToggle.Parent = autoAcc
 Instance.new("UICorner", masterToggle).CornerRadius = UDim.new(0, 5)
+
+local statusLbl = Instance.new("TextLabel")
+statusLbl.Size = UDim2.new(1, -16, 0, 24)
+statusLbl.Position = UDim2.new(0, 8, 0, 48)
+statusLbl.BackgroundTransparency = 1
+statusLbl.Font = Enum.Font.GothamSemibold
+statusLbl.Text = "Status: Idle"
+statusLbl.TextColor3 = Color3.fromRGB(140, 255, 160)
+statusLbl.TextSize = 11
+statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+statusLbl.Parent = autoAcc
 
 masterToggle.MouseButton1Click:Connect(function()
     Config.MasterEnable = not Config.MasterEnable
@@ -269,41 +291,24 @@ masterToggle.MouseButton1Click:Connect(function()
     masterToggle.Text = Config.MasterEnable and "Auto Steal: ACTIVE" or "Auto Steal: OFF"
 end)
 
-local statusLbl = Instance.new("TextLabel")
-statusLbl.Size = UDim2.new(1, -16, 0, 24)
-statusLbl.Position = UDim2.new(0, 8, 0, 46)
-statusLbl.BackgroundTransparency = 1
-statusLbl.Font = Enum.Font.GothamSemibold
-statusLbl.Text = "Status: IDLE"
-statusLbl.TextColor3 = Color3.fromRGB(140, 255, 160)
-statusLbl.TextSize = 11
-statusLbl.TextXAlignment = Enum.TextXAlignment.Left
-statusLbl.Parent = mainControlFrame
 
-
--- SECTION: WORLD / AREA FILTERS
-createSection("Target World Filters")
-local areasFrame = Instance.new("Frame")
-areasFrame.Size = UDim2.new(1, 0, 0, 140)
-areasFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-areasFrame.Parent = Container
-Instance.new("UICorner", areasFrame).CornerRadius = UDim.new(0, 6)
-
-local areaList = Instance.new("UIListLayout")
-areaList.Padding = UDim.new(0, 3)
-areaList.Parent = areasFrame
+-- B. Target World Filters
+local worldsAcc = createAccordion("Target Worlds Filter", 155)
+local wLayout = Instance.new("UIListLayout")
+wLayout.Padding = UDim.new(0, 3)
+wLayout.Parent = worldsAcc
 
 for _, areaName in ipairs({"Titan Temple", "Cherry Blossom", "Cosmic", "Forest", "Lake", "Desert"}) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 20)
-    btn.Position = UDim2.new(0, 5, 0, 0)
+    btn.Size = UDim2.new(1, -8, 0, 22)
+    btn.Position = UDim2.new(0, 4, 0, 4)
     btn.BackgroundColor3 = TableContains(Config.Filters.Areas, areaName) and Color3.fromRGB(50, 120, 80) or Color3.fromRGB(35, 35, 48)
     btn.Text = " [✓] " .. areaName
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 11
     btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.Parent = areasFrame
+    btn.Parent = worldsAcc
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
     
     btn.MouseButton1Click:Connect(function()
@@ -320,28 +325,22 @@ for _, areaName in ipairs({"Titan Temple", "Cherry Blossom", "Cosmic", "Forest",
 end
 
 
--- SECTION: RARITY FILTERS
-createSection("Rarity Filters")
-local rarityFrame = Instance.new("Frame")
-rarityFrame.Size = UDim2.new(1, 0, 0, 140)
-rarityFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-rarityFrame.Parent = Container
-Instance.new("UICorner", rarityFrame).CornerRadius = UDim.new(0, 6)
-
-local rarityList = Instance.new("UIListLayout")
-rarityList.Padding = UDim.new(0, 3)
-rarityList.Parent = rarityFrame
+-- C. Rarity Filters
+local rarityAcc = createAccordion("Rarity Filters", 155)
+local rLayout = Instance.new("UIListLayout")
+rLayout.Padding = UDim.new(0, 3)
+rLayout.Parent = rarityAcc
 
 for _, rarityName in ipairs({"Common", "Rare", "Epic", "Legendary", "Mythic", "Secret"}) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 20)
+    btn.Size = UDim2.new(1, -8, 0, 22)
     btn.BackgroundColor3 = TableContains(Config.Filters.Rarities, rarityName) and Color3.fromRGB(120, 80, 50) or Color3.fromRGB(35, 35, 48)
     btn.Text = " [✓] " .. rarityName
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 11
     btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.Parent = rarityFrame
+    btn.Parent = rarityAcc
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
     
     btn.MouseButton1Click:Connect(function()
@@ -358,14 +357,8 @@ for _, rarityName in ipairs({"Common", "Rare", "Epic", "Legendary", "Mythic", "S
 end
 
 
--- SECTION: AUTOMATION SETTINGS
-createSection("Automation Behavior")
-local settingsFrame = Instance.new("Frame")
-settingsFrame.Size = UDim2.new(1, 0, 0, 50)
-settingsFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
-settingsFrame.Parent = Container
-Instance.new("UICorner", settingsFrame).CornerRadius = UDim.new(0, 6)
-
+-- D. Automation Settings & Priority
+local settingsAcc = createAccordion("Automation & Priority", 50)
 local priorityBtn = Instance.new("TextButton")
 priorityBtn.Size = UDim2.new(1, -16, 0, 32)
 priorityBtn.Position = UDim2.new(0, 8, 0, 9)
@@ -374,22 +367,21 @@ priorityBtn.Text = "Priority Mode: Highest KG"
 priorityBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 priorityBtn.Font = Enum.Font.GothamSemibold
 priorityBtn.TextSize = 11
-priorityBtn.Parent = settingsFrame
+priorityBtn.Parent = settingsAcc
 Instance.new("UICorner", priorityBtn).CornerRadius = UDim.new(0, 5)
 
 priorityBtn.MouseButton1Click:Connect(function()
-    if Config.Automation.TargetPriority == "HighestKG" then
-        Config.Automation.TargetPriority = "ClosestDistance"
+    if Config.Automation.Priority == "HighestKG" then
+        Config.Automation.Priority = "ClosestDistance"
         priorityBtn.Text = "Priority Mode: Closest Distance"
     else
-        Config.Automation.TargetPriority = "HighestKG"
+        Config.Automation.Priority = "HighestKG"
         priorityBtn.Text = "Priority Mode: Highest KG"
     end
 end)
 
-
 --------------------------------------------------------------------------------
--- 5. DRAGGING & WINDOW CONTROLS LOGIC
+-- 6. WINDOW DRAGGING & CONTROLS
 --------------------------------------------------------------------------------
 local dragging, dragStart, startPos = false, nil, nil
 Header.InputBegan:Connect(function(input)
@@ -410,8 +402,8 @@ end)
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 MinBtn.MouseButton1Click:Connect(function()
     Runtime.IsMinimized = true
-    TweenService:Create(MainFrame, TweenInfo.new(0.25), {Size = UDim2.new(0,0,0,0)}):Play()
-    task.wait(0.25)
+    TweenService:Create(MainFrame, TweenInfo.new(0.2), {Size = UDim2.new(0,0,0,0)}):Play()
+    task.wait(0.2)
     MainFrame.Visible = false
     ReopenBtn.Visible = true
 end)
@@ -419,7 +411,7 @@ ReopenBtn.MouseButton1Click:Connect(function()
     Runtime.IsMinimized = false
     ReopenBtn.Visible = false
     MainFrame.Visible = true
-    TweenService:Create(MainFrame, TweenInfo.new(0.25), {Size = UDim2.new(0, 340, 0, 420)}):Play()
+    TweenService:Create(MainFrame, TweenInfo.new(0.2), {Size = UDim2.new(0, 340, 0, 460)}):Play()
 end)
 
 UserInputService.InputBegan:Connect(function(input)
@@ -432,60 +424,65 @@ end)
 
 
 --------------------------------------------------------------------------------
--- 6. STRICT PRIORITY AUTOMATION LOOP (FIXED LOGIC)
+-- 7. STRICT PRIORITY ENGINE (EGGS FIRST, TREADMILL AS TRUE FALLBACK)
 --------------------------------------------------------------------------------
 RunService.Stepped:Connect(function()
     if not Config.MasterEnable then
-        Runtime.CurrentState = "IDLE"
-        Runtime.CurrentAction = "Master Switch Off"
-        statusLbl.Text = "Status: IDLE (Paused)"
+        Runtime.State = "Idle"
+        statusLbl.Text = "Status: Idle (Paused)"
         return
     end
     
-    -- STEP 1: Scan for eligible eggs based on user filters
-    Runtime.CurrentState = "SCANNING"
-    Runtime.CurrentAction = "Searching selected worlds for eligible eggs..."
-    statusLbl.Text = "Status: Scanning Worlds..."
+    -- Step 1: Scan selected worlds for eligible eggs
+    Runtime.State = "Scanning..."
+    statusLbl.Text = "Status: Scanning..."
     
     local targetEgg = FindBestEligibleEgg()
     
     if targetEgg then
-        -- STEP 2: An eligible egg exists! Prioritize stealing it.
-        Runtime.CurrentTarget = targetEgg
+        -- Step 2: Eligible egg found! Go and steal it.
+        Runtime.TargetEgg = targetEgg
         local pos = targetEgg:IsA("Model") and (targetEgg.PrimaryPart and targetEgg.PrimaryPart.Position or targetEgg:GetPivot().Position) or targetEgg.Position
         
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local dist = hrp and (hrp.Position - pos).Magnitude or 999
         
         if dist > 7 then
-            Runtime.CurrentState = "GOING_TO_EGG"
-            Runtime.CurrentAction = "Going to Egg: " .. targetEgg.Name
+            Runtime.State = "Going to Egg"
             statusLbl.Text = "Status: Going to Egg (" .. math.floor(dist) .. " studs)"
             MoveToPosition(pos)
         else
-            Runtime.CurrentState = "STEALING"
-            Runtime.CurrentAction = "Stealing Egg: " .. targetEgg.Name
-            statusLbl.Text = "Status: Actively Stealing Egg!"
+            Runtime.State = "Stealing..."
+            statusLbl.Text = "Status: Stealing..."
             
-            if tick() - Runtime.LastStealTick > Config.StealDelay then
+            if tick() - Runtime.LastStealTick > Config.StealCooldown then
                 Runtime.LastStealTick = tick()
                 Config.Remotes.StealAction:FireServer(targetEgg)
             end
         end
     else
-        -- STEP 3: NO eligible eggs remain. ONLY NOW fallback to treadmill training!
-        Runtime.CurrentTarget = nil
-        Runtime.CurrentState = "TREADMILLING"
-        Runtime.CurrentAction = "No eggs found - Training on Treadmill (Fallback)"
-        statusLbl.Text = "Status: Treadmilling (Fallback)"
+        -- Step 3: Zero eligible eggs remaining across selected worlds. ONLY NOW fallback to treadmill!
+        Runtime.TargetEgg = nil
+        Runtime.State = "No Eggs Found"
+        statusLbl.Text = "Status: No Eggs Found"
         
         local treadmill = FindNearestTreadmill()
         if treadmill then
             local tPos = treadmill:IsA("Model") and treadmill:GetPivot().Position or treadmill.Position
-            MoveToPosition(tPos)
-            Config.Remotes.TrainAction:FireServer(treadmill)
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local dist = hrp and (hrp.Position - tPos).Magnitude or 999
+            
+            if dist > 6 then
+                Runtime.State = "Going to Treadmill"
+                statusLbl.Text = "Status: Going to Treadmill"
+                MoveToPosition(tPos)
+            else
+                Runtime.State = "Treadmilling"
+                statusLbl.Text = "Status: Treadmilling"
+                Config.Remotes.TrainAction:FireServer(treadmill)
+            end
         end
     end
 end)
 
-print("[NITRO Compact QA Suite 3.0 successfully loaded]")
+print("[NITRO Suite v4.0 Successfully Loaded]")
