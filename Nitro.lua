@@ -1,13 +1,13 @@
 --[================================================================]--
 --     NITRO STEAL AN EGG TESTING & QA SUITE (ROBLOX STUDIO)        --
---     Brand: NITRO | Version: 1.0.0-QA                             --
+--     Brand: NITRO | Version: 1.0.1-QA (Fixed)                     --
 --[================================================================]--
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
@@ -15,40 +15,33 @@ local LocalPlayer = Players.LocalPlayer
 --------------------------------------------------------------------------------
 -- 1. CONFIGURATION & ASSUMPTION MAPPING
 --------------------------------------------------------------------------------
--- Note: Adjust these instance paths to match your exact Roblox Studio hierarchy.
 local Config = {
     MasterEnable = false,
     GuiKeybind = Enum.KeyCode.RightControl,
     
-    -- Paths (Assumed Folders - Easily Configurable)
     Folders = {
         Eggs = Workspace:WaitForChild("Eggs", 5) or Workspace,
         Treadmills = Workspace:WaitForChild("Treadmills", 5) or Workspace,
         SpawnLocations = Workspace:WaitForChild("SpawnLocations", 5) or Workspace,
     },
     
-    -- Remote / Interaction Names (Assumed - Configure to match your remote names)
     Remotes = {
-        StealAction = ReplicatedStorage:FindFirstChild("StealEggRemote") 
-            or Instance.new("RemoteEvent"), -- Fallback dummy if not found
-        TrainAction = ReplicatedStorage:FindFirstChild("TrainRemote") 
-            or Instance.new("RemoteEvent"),
+        StealAction = ReplicatedStorage:FindFirstChild("StealEggRemote") or Instance.new("RemoteEvent"),
+        TrainAction = ReplicatedStorage:FindFirstChild("TrainRemote") or Instance.new("RemoteEvent"),
     },
     
-    -- Timing Delays (Seconds)
     StealDelay = 1.0,
     DetectionInterval = 0.5,
     
-    -- Filters (Multi-select / Ranges)
     Filters = {
-        Areas = {"Forest", "Lake", "Desert", "Jungle", "Snow", "Volcano", "Abyss"}, -- Default: All
+        Areas = {"Forest", "Lake", "Desert", "Jungle", "Snow", "Volcano", "Abyss", "Titan Temple", "Cherry Blossom", "Cosmic"},
         Rarities = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine"},
         MinKG = 0,
         MaxKG = 999999999,
     },
     
-    TrainingBehavior = "AutomaticFallback", -- Options: "AutomaticFallback", "Disabled"
-    TargetPriority = "HighestKG",         -- Options: "HighestKG", "ClosestDistance", "Rarest"
+    TrainingBehavior = "AutomaticFallback",
+    TargetPriority = "HighestKG",
 }
 
 --------------------------------------------------------------------------------
@@ -63,7 +56,8 @@ local States = {
     COMPLETE = "COMPLETE",
     TRAINING = "TRAINING",
     WAITING = "WAITING",
-    NO_TARGET = "NO_TARGET"
+    NO_TARGET = "NO_TARGET",
+    GOING_TO_TREADMILL = "GOING_TO_TREADMILL"
 }
 
 local Runtime = {
@@ -86,27 +80,19 @@ local function TableContains(tbl, val)
 end
 
 local function EvaluateEgg(eggModel)
-    -- Expects attributes or values on the Egg model: .Area, .Rarity, .KG (Weight)
     local area = eggModel:GetAttribute("Area") or "Forest"
     local rarity = eggModel:GetAttribute("Rarity") or "Common"
     local kg = eggModel:GetAttribute("KG") or 10
     
-    -- Check Area Filter
     if not TableContains(Config.Filters.Areas, area) then
         return false, "Rejected: Wrong Area"
     end
-    
-    -- Check Rarity Filter
     if not TableContains(Config.Filters.Rarities, rarity) then
         return false, "Rejected: Rarity Filter"
     end
-    
-    -- Check Min KG Filter
     if kg < Config.Filters.MinKG then
         return false, "Rejected: Below Minimum KG"
     end
-    
-    -- Check Max KG Filter
     if kg > Config.Filters.MaxKG then
         return false, "Rejected: Above Maximum KG"
     end
@@ -148,14 +134,13 @@ local function ScanForEligibleEggs()
             })
             
             if isEligible then
-                -- Target Selection Algorithm based on priority
                 local score = 0
                 if Config.TargetPriority == "HighestKG" then
                     score = kg
                 elseif Config.TargetPriority == "ClosestDistance" then
                     score = 10000 - distance
                 elseif Config.TargetPriority == "Rarest" then
-                    score = kg * 2 -- simplified rank scale for testing
+                    score = kg * 2
                 end
                 
                 if score > bestScore then
@@ -205,14 +190,19 @@ local function FindNearestTreadmill()
 end
 
 --------------------------------------------------------------------------------
--- 5. POLISHED CUSTOM NITRO GUI
+-- 5. POLISHED CUSTOM NITRO GUI (Safe Parent Fallback)
 --------------------------------------------------------------------------------
+local success, guiContainer = pcall(function()
+    return CoreGui
+end)
+
+local parentTarget = (success and CoreGui) or LocalPlayer:WaitForChild("PlayerGui")
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NitroStealAnEggQA"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
+ScreenGui.Parent = parentTarget
 
--- Main Container Window
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 620, 0, 420)
@@ -225,7 +215,6 @@ local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 12)
 MainCorner.Parent = MainFrame
 
--- Header Bar
 local Header = Instance.new("Frame")
 Header.Size = UDim2.new(1, 0, 0, 45)
 Header.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
@@ -247,7 +236,6 @@ TitleLabel.TextSize = 14
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = Header
 
--- Close / Minimize Buttons
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
 CloseButton.Position = UDim2.new(1, -35, 0, 7)
@@ -263,7 +251,6 @@ CloseButton.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Sidebar Navigation Tabs
 local TabContainer = Instance.new("Frame")
 TabContainer.Size = UDim2.new(0, 130, 1, -55)
 TabContainer.Position = UDim2.new(0, 10, 0, 50)
@@ -284,7 +271,6 @@ ContentFrame.BackgroundTransparency = 1
 ContentFrame.Parent = MainFrame
 
 for i, tabName in ipairs(tabs) do
-    -- Tab Selection Button
     local tabBtn = Instance.new("TextButton")
     tabBtn.Size = UDim2.new(1, 0, 0, 35)
     tabBtn.BackgroundColor3 = i == 1 and Color3.fromRGB(40, 40, 55) or Color3.fromRGB(25, 25, 35)
@@ -295,7 +281,6 @@ for i, tabName in ipairs(tabs) do
     tabBtn.Parent = TabContainer
     Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 6)
     
-    -- Corresponding Page Frame
     local page = Instance.new("ScrollingFrame")
     page.Size = UDim2.new(1, 0, 1, 0)
     page.BackgroundTransparency = 1
@@ -318,8 +303,6 @@ end
 --------------------------------------------------------------------------------
 -- 6. POPULATE TAB CONTENTS
 --------------------------------------------------------------------------------
-
--- MAIN TAB
 local mainPage = contentPages["MAIN"]
 local function createLabel(parent, text, pos)
     local lbl = Instance.new("TextLabel")
@@ -357,7 +340,6 @@ local statusTargetLbl = createLabel(mainPage, "Current Target: None", UDim2.new(
 local statusActionLbl = createLabel(mainPage, "Current Action: Idle", UDim2.new(0, 0, 0, 80))
 local statusStateLbl = createLabel(mainPage, "Current State: IDLE", UDim2.new(0, 0, 0, 110))
 
--- DEBUG TAB
 local debugPage = contentPages["DEBUG"]
 local debugLogLabel = Instance.new("TextLabel")
 debugLogLabel.Size = UDim2.new(1, 0, 0, 450)
@@ -372,13 +354,12 @@ debugLogLabel.TextYAlignment = Enum.TextYAlignment.Top
 debugLogLabel.TextWrapped = true
 debugLogLabel.Parent = debugPage
 
--- ABOUT TAB
 local aboutPage = contentPages["ABOUT"]
 local aboutText = Instance.new("TextLabel")
 aboutText.Size = UDim2.new(1, 0, 1, 0)
-aboutText.BackgroundTransparency = TestTransparency or 1
+aboutText.BackgroundTransparency = 1
 aboutText.Font = Enum.Font.Gotham
-aboutText.Text = "NITRO Steal An Egg QA Testing Suite\nBrand: NITRO\nVersion: 1.0.0-QA\n\nDesigned for internal studio validation, automated egg filtering mechanics, and fallback treadmill training sequence verification."
+aboutText.Text = "NITRO Steal An Egg QA Testing Suite\nBrand: NITRO\nVersion: 1.0.1-QA\n\nDesigned for internal studio validation, automated egg filtering mechanics, and fallback treadmill training sequence verification."
 aboutText.TextColor3 = Color3.fromRGB(220, 220, 220)
 aboutText.TextSize = 13
 aboutText.TextWrapped = true
@@ -387,7 +368,7 @@ aboutText.TextYAlignment = Enum.TextYAlignment.Top
 aboutText.Parent = aboutPage
 
 --------------------------------------------------------------------------------
--- 7. AUTOMATION LOOP (STATE MACHINE)
+-- 7. AUTOMATION LOOP
 --------------------------------------------------------------------------------
 RunService.Stepped:Connect(function()
     if not Config.MasterEnable then
@@ -398,13 +379,11 @@ RunService.Stepped:Connect(function()
         return
     end
     
-    -- State: Scanning
     Runtime.CurrentState = States.SCANNING
     Runtime.CurrentAction = "Scanning environment for valid eggs..."
     
     local targetEgg, cache = ScanForEligibleEggs()
     
-    -- Update Debug readout
     local debugTextBuilder = "--- NITRO QA DEBUG CONSOLE ---\n"
     for _, info in ipairs(cache) do
         debugTextBuilder = string.format("%s\n[Egg: %s]\n Area: %s | Rarity: %s | KG: %s\n Dist: %s | Eligible: %s\n Reason: %s\n",
@@ -417,12 +396,10 @@ RunService.Stepped:Connect(function()
         Runtime.CurrentState = States.TARGET_FOUND
         Runtime.CurrentAction = "Target Acquired: " .. targetEgg.Name
         
-        -- State: Moving
         Runtime.CurrentState = States.MOVING
         local targetPos = targetEgg:IsA("Model") and targetEgg:GetPivot().Position or targetEgg.Position
         MoveToPosition(targetPos)
         
-        -- Check distance to interact
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if hrp and (hrp.Position - targetPos).Magnitude < 8 then
@@ -431,12 +408,10 @@ RunService.Stepped:Connect(function()
             
             if tick() - Runtime.LastStealTick > Config.StealDelay then
                 Runtime.LastStealTick = tick()
-                -- Trigger simulated legitimate game interaction
                 Config.Remotes.StealAction:FireServer(targetEgg)
             end
         end
     else
-        -- Fallback: Auto Train on Treadmill when no eggs match filters
         Runtime.CurrentTarget = nil
         if Config.TrainingBehavior == "AutomaticFallback" then
             Runtime.CurrentState = States.GOING_TO_TREADMILL
@@ -461,13 +436,11 @@ RunService.Stepped:Connect(function()
         end
     end
     
-    -- Refresh UI Readouts
     statusTargetLbl.Text = "Current Target: " .. (Runtime.CurrentTarget and Runtime.CurrentTarget.Name or "None")
     statusActionLbl.Text = "Current Action: " .. Runtime.CurrentAction
     statusStateLbl.Text = "Current State: " .. Runtime.CurrentState
 end)
 
--- Keybind Toggle
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Config.GuiKeybind then
         Runtime.IsGuiOpen = not Runtime.IsGuiOpen
